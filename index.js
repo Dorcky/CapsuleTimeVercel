@@ -1,8 +1,17 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
+const firebaseAdmin = require('firebase-admin');
 
-dotenv.config(); // Charger les variables d'environnement depuis le fichier .env
+// Charger les variables d'environnement depuis le fichier .env
+dotenv.config();
+
+// Initialiser Firebase Admin SDK
+firebaseAdmin.initializeApp({
+    credential: firebaseAdmin.credential.cert(require('./capsule-time-23589-firebase-adminsdk-4p2wc-4a88757d31.json')),
+    databaseURL: 'https://capsule-time-23589-default-rtdb.firebaseio.com'
+
+});
 
 const app = express();
 app.use(express.json()); // Middleware pour parser les requêtes JSON
@@ -12,24 +21,52 @@ app.get('/', (req, res) => {
     res.send('Bienvenue sur l\'API CapsuleTime!');
 });
 
-// API de la fonction d'envoi d'email
-app.post('/api/sendEmail', async (req, res) => {
-    // Autoriser les requêtes CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+// API pour partager une capsule
+app.post('/api/shareCapsule', async (req, res) => {
+    const { capsule, toEmail } = req.body;
 
-    // Vérifier que la requête est bien de type POST
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Méthode non autorisée' });
+    // Vérifier que les données nécessaires sont présentes
+    if (!capsule || !toEmail) {
+        return res.status(400).json({ error: 'Les champs "capsule" et "toEmail" sont requis' });
     }
 
-    // Vérifier que le corps de la requête contient bien les données nécessaires
-    const { to, subject, text } = req.body;
+    // Enregistrer la capsule partagée dans Firebase
+    const ref = firebaseAdmin.database().ref('sharedCapsules').push();
+    const sharedCapsuleData = {
+        message: capsule.message,
+        dateOuverture: capsule.dateOuverture,
+        estOuverte: capsule.estOuverte,
+        sentiment: capsule.sentiment,
+        creatorID: capsule.creatorID,
+        isShared: true,
+        sharedWithEmails: [toEmail], // Liste des emails avec lesquels la capsule est partagée
+    };
 
-    if (!to || !subject || !text) {
-        return res.status(400).json({ error: 'Les champs "to", "subject" et "text" sont requis' });
+    try {
+        // Enregistrer la capsule partagée
+        await ref.set(sharedCapsuleData);
+
+        // Envoyer un email pour notifier le destinataire
+        await sendShareEmail(toEmail, capsule);
+
+        return res.status(200).json({ message: 'Capsule partagée avec succès!' });
+    } catch (error) {
+        console.error('Erreur lors du partage de la capsule:', error);
+        return res.status(500).json({ error: 'Erreur lors du partage de la capsule' });
     }
+});
+
+// Fonction pour envoyer un email de notification
+async function sendShareEmail(toEmail, capsule) {
+    const subject = "Une capsule temporelle a été partagée avec vous";
+    const body = `
+        Bonjour,
+        Une capsule temporelle a été partagée avec vous sur Capsule Time.
+        Elle sera disponible à partir du ${new Date(capsule.dateOuverture).toLocaleString()}.
+        Connectez-vous à l'application pour la voir.
+        Cordialement,
+        L'équipe Capsule Time
+    `;
 
     const transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -40,20 +77,23 @@ app.post('/api/sendEmail', async (req, res) => {
     });
 
     const mailOptions = {
-        from: process.env.EMAIL_USERNAME,
-        to: to,
+        from: process.env.EMAIL_USERNAME, // Email de l'expéditeur
+        to: toEmail, // Email du destinataire
         subject: subject,
-        text: text,
+        text: body,
     };
 
-    try {
-        await transporter.sendMail(mailOptions);
-        return res.status(200).json({ message: 'Email envoyé avec succès!' });
-    } catch (error) {
-        console.error('Error sending email:', error);
-        return res.status(500).json({ error: 'Erreur lors de l\'envoi de l\'email', details: error.message });
-    }
-});
+    // Envoi de l'email
+    return new Promise((resolve, reject) => {
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                return reject(error);
+            }
+            console.log('Email envoyé: ' + info.response);
+            resolve(info);
+        });
+    });
+}
 
 // Démarrer le serveur sur le port spécifié ou 3000 par défaut
 const PORT = process.env.PORT || 3000;
