@@ -7,6 +7,11 @@ dotenv.config(); // Charger les variables d'environnement depuis le fichier .env
 const app = express();
 app.use(express.json()); // Middleware pour parser les requêtes JSON
 
+// Ajouter une route GET pour la racine
+app.get('/', (req, res) => {
+    res.send('Bienvenue sur l\'API CapsuleTime!');
+});
+
 // API de la fonction d'envoi d'email
 app.post('/api/sendEmail', async (req, res) => {
     // Autoriser les requêtes CORS
