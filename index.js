@@ -25,7 +25,7 @@ app.get('/', (req, res) => {
 app.post('/api/shareCapsule', async (req, res) => {
     const { capsule, toEmail } = req.body;
 
-    // Vérifier que les données nécessaires sont présentes
+    // Vérifier que les données nécessaires sont présentes ok
     if (!capsule || !toEmail) {
         return res.status(400).json({ error: 'Les champs "capsule" et "toEmail" sont requis' });
     }
