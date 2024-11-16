@@ -1,0 +1,20 @@
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "api/**/*.js",
+        "use": "@vercel/node"
+      }
+    ],
+    "env": {
+      "EMAIL_USER": "patecho8@gmail.com",
+      "EMAIL_PASS": "ygzk ebte eigv fpob"      
+    },
+    "routes": [
+      {
+        "src": "/api/sendEmail",
+        "dest": "/api/sendEmail.js"
+      }
+    ]
+  }
+  
