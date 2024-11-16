@@ -1,3 +1,4 @@
+// Importer les modules nécessaires
 const express = require('express');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
@@ -6,11 +7,25 @@ const firebaseAdmin = require('firebase-admin');
 // Charger les variables d'environnement depuis le fichier .env
 dotenv.config();
 
-// Initialiser Firebase Admin SDK
-firebaseAdmin.initializeApp({
-    credential: firebaseAdmin.credential.cert(require('./capsule-time-23589-firebase-adminsdk-4p2wc-4a88757d31.json')),
-    databaseURL: 'https://capsule-time-23589-default-rtdb.firebaseio.com'
+// Initialiser Firebase Admin SDK avec les informations de service
+const serviceAccount = {
+    type: "service_account",
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Remplacer \n par des retours à la ligne
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    client_id: process.env.FIREBASE_CLIENT_ID,
+    auth_uri: process.env.FIREBASE_AUTH_URI,
+    token_uri: process.env.FIREBASE_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
+    client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
+    universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
+};
 
+// Initialiser Firebase Admin SDK avec ces informations
+firebaseAdmin.initializeApp({
+    credential: firebaseAdmin.credential.cert(serviceAccount),
+    databaseURL: process.env.FIREBASE_DATABASE_URL
 });
 
 const app = express();
@@ -25,7 +40,7 @@ app.get('/', (req, res) => {
 app.post('/api/shareCapsule', async (req, res) => {
     const { capsule, toEmail } = req.body;
 
-    // Vérifier que les données nécessaires sont présentes ok
+    // Vérifier que les données nécessaires sont présentes
     if (!capsule || !toEmail) {
         return res.status(400).json({ error: 'Les champs "capsule" et "toEmail" sont requis' });
     }
@@ -43,7 +58,7 @@ app.post('/api/shareCapsule', async (req, res) => {
     };
 
     try {
-        // Enregistrer la capsule partagée
+        // Enregistrer la capsule partagée dans Firebase
         await ref.set(sharedCapsuleData);
 
         // Envoyer un email pour notifier le destinataire
